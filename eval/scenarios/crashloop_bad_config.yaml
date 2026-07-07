@@ -1,0 +1,49 @@
+# Scenario: crash-loop caused by reference to a ConfigMap that doesn't exist
+id: crashloop_bad_config
+trigger_expected: crashloop
+known_root_cause: bad_config
+expected_fix:
+  action_id: rollback_deployment
+  params: {deployment: victim-bad-config, namespace: eval}
+wait_for:
+  condition: pod.status.reason == "CrashLoopBackOff" or "CreateContainerConfigError"
+  timeout_seconds: 180
+notes: |
+  Missing ConfigMap ref surfaces as CreateContainerConfigError, not a crash.
+  Alternative variant (true crash-loop): valid container, entrypoint reads a
+  required env var and exits 1 when missing — that produces real
+  CrashLoopBackOff. Both variants included; pick per what your trigger watches.
+  Diagnosis evidence should cite the events feed, not logs (there ARE no logs
+  for the ConfigMap variant — a nice trap for lazy agents).
+
+setup_manifest: |
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: victim-bad-config
+    namespace: eval
+    labels: {eval-scenario: crashloop_bad_config}
+  spec:
+    replicas: 1
+    selector: {matchLabels: {app: victim-bad-config}}
+    template:
+      metadata:
+        labels: {app: victim-bad-config, eval-scenario: crashloop_bad_config}
+      spec:
+        containers:
+          - name: app
+            image: busybox:1.36
+            command: ["sh", "-c", "test -n \"$REQUIRED_SECRET\" || (echo 'FATAL: REQUIRED_SECRET not set' && exit 1); sleep 3600"]
+            env:
+              - name: REQUIRED_SECRET
+                valueFrom:
+                  configMapKeyRef:
+                    name: does-not-exist        # the crime
+                    key: secret
+                    optional: true              # optional:true -> empty var -> exit 1 -> true CrashLoopBackOff
+            resources:
+              requests: {memory: 16Mi, cpu: 25m}
+              limits: {memory: 32Mi, cpu: 50m}
+
+teardown: |
+  kubectl delete deployment,pod -n eval -l eval-scenario=crashloop_bad_config --ignore-not-found --wait=false

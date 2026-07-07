@@ -1,0 +1,42 @@
+# Scenario: pod unschedulable — memory request exceeds node allocatable
+id: resource_starvation
+trigger_expected: pending_unschedulable   # added via SPEC §9 amendment 2026-07-06
+known_root_cause: resource_starvation
+expected_fix:
+  action_id: bump_resources        # here meaning: LOWER the request to fit (params carry direction)
+  params: {deployment: victim-starved, namespace: eval, memory_request: 128Mi}
+wait_for:
+  condition: pod.status.phase == "Pending" and events contain "Insufficient memory"
+  timeout_seconds: 180
+notes: |
+  RESOLVED 2026-07-06: SPEC §3 amended to add `pending_unschedulable` trigger
+  (option a). Rationale in SPEC §9 — FailedScheduling is a distinct evidence
+  path (events + node capacity, zero logs), which makes trajectory scoring
+  actually mean something here.
+  Request is set to 64Gi — comfortably above any homelab node. Adjust down
+  if you're secretly running a Threadripper.
+
+setup_manifest: |
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: victim-starved
+    namespace: eval
+    labels: {eval-scenario: resource_starvation}
+  spec:
+    replicas: 1
+    selector: {matchLabels: {app: victim-starved}}
+    template:
+      metadata:
+        labels: {app: victim-starved, eval-scenario: resource_starvation}
+      spec:
+        containers:
+          - name: app
+            image: busybox:1.36
+            command: ["sh", "-c", "sleep 3600"]
+            resources:
+              requests: {memory: 64Gi, cpu: 100m}   # the crime
+              limits: {memory: 64Gi, cpu: 200m}
+
+teardown: |
+  kubectl delete deployment,pod -n eval -l eval-scenario=resource_starvation --ignore-not-found --wait=false

@@ -1,0 +1,12 @@
+# Controlled root-cause vocabulary — agent verdicts MUST use one of these.
+# Exact string match in scoring; no fuzzy LLM-judging in v0.
+# Adding a term = spec amendment (SPEC.md §9).
+root_causes:
+  - bad_image            # image doesn't exist / can't be pulled
+  - bad_config           # missing/invalid ConfigMap, Secret, or env var
+  - limit_too_low        # memory limit below legitimate steady-state need
+  - memory_leak          # unbounded growth; limit is fine, app is not
+  - resource_starvation  # requests exceed node allocatable; unschedulable
+  - unknown              # honest "I don't know" — scores 0 but flagged separately
+                         # from wrong answers (an agent that says unknown beats
+                         # one that confidently lies; track both rates)

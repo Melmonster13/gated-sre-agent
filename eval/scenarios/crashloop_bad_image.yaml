@@ -1,0 +1,38 @@
+# Scenario: crash-loop caused by nonexistent image tag
+id: crashloop_bad_image
+trigger_expected: crashloop            # per SPEC §3
+known_root_cause: bad_image            # controlled vocab — see scoring/vocab.yaml
+expected_fix:
+  action_id: rollback_deployment
+  params: {deployment: victim-bad-image, namespace: eval}
+wait_for:
+  condition: pod.status.reason in ["ImagePullBackOff", "ErrImagePull", "CrashLoopBackOff"]
+  timeout_seconds: 180
+notes: |
+  ImagePullBackOff technically isn't CrashLoopBackOff — k3s reports it as a
+  waiting reason, not a crash. Trigger config must catch both or this scenario
+  never fires. This is gotcha #1 you'll hit; it's intentional.
+
+setup_manifest: |
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: victim-bad-image
+    namespace: eval
+    labels: {eval-scenario: crashloop_bad_image}
+  spec:
+    replicas: 1
+    selector: {matchLabels: {app: victim-bad-image}}
+    template:
+      metadata:
+        labels: {app: victim-bad-image, eval-scenario: crashloop_bad_image}
+      spec:
+        containers:
+          - name: app
+            image: nginx:1.99.99-does-not-exist   # the crime
+            resources:
+              requests: {memory: 32Mi, cpu: 50m}
+              limits: {memory: 64Mi, cpu: 100m}
+
+teardown: |
+  kubectl delete deployment,pod -n eval -l eval-scenario=crashloop_bad_image --ignore-not-found --wait=false

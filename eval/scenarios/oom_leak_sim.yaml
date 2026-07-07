@@ -1,0 +1,52 @@
+# Scenario: gradual OOMKill — memory ramps over ~2 min, simulating a leak
+id: oom_leak_sim
+trigger_expected: oom
+known_root_cause: memory_leak
+expected_fix:
+  action_id: restart_pod          # correct short-term fix for a leak; bumping limits just delays death
+  params: {pod_selector: "app=victim-oom-leak", namespace: eval}
+wait_for:
+  condition: container.last_state.terminated.reason == "OOMKilled"
+  timeout_seconds: 300            # longer — the ramp takes ~2 min by design
+notes: |
+  Shell loop appends 5MB to an in-memory allocation every 5s: ~120Mi after
+  2 min, crossing the 128Mi limit. The distinguisher vs oom_limit_too_low:
+  pod runs FINE for minutes before dying, and the restart pattern is
+  periodic, not immediate. Correct trajectory evidence: pod age at death,
+  gradual usage climb (if metrics available), healthy startup logs.
+  expected_fix is restart_pod — an agent proposing bump_resources here gets
+  partial credit at best; the leak eats any limit eventually.
+
+setup_manifest: |
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: victim-oom-leak
+    namespace: eval
+    labels: {eval-scenario: oom_leak_sim}
+  spec:
+    replicas: 1
+    selector: {matchLabels: {app: victim-oom-leak}}
+    template:
+      metadata:
+        labels: {app: victim-oom-leak, eval-scenario: oom_leak_sim}
+      spec:
+        containers:
+          - name: app
+            image: python:3.12-alpine
+            command: ["python", "-c"]
+            args:
+              - |
+                import time
+                print("app started healthy", flush=True)
+                hoard = []
+                while True:
+                    hoard.append(bytearray(5 * 1024 * 1024))   # +5MB
+                    print(f"working... rss ~{len(hoard)*5}MB", flush=True)
+                    time.sleep(5)
+            resources:
+              requests: {memory: 64Mi, cpu: 50m}
+              limits: {memory: 128Mi, cpu: 100m}
+
+teardown: |
+  kubectl delete deployment,pod -n eval -l eval-scenario=oom_leak_sim --ignore-not-found --wait=false
