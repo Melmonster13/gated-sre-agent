@@ -1,6 +1,6 @@
 # Controlled root-cause vocabulary — agent verdicts MUST use one of these.
 # Exact string match in scoring; no fuzzy LLM-judging in v0.
-# Adding a term = spec amendment (SPEC.md §9).
+# Adding a term = spec amendment (SPEC.md §11).
 root_causes:
   - bad_image            # image doesn't exist / can't be pulled
   - bad_config           # missing/invalid ConfigMap, Secret, or env var

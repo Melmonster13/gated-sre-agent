@@ -1,6 +1,6 @@
 # Scenario: pod unschedulable — memory request exceeds node allocatable
 id: resource_starvation
-trigger_expected: pending_unschedulable   # added via SPEC §9 amendment 2026-07-06
+trigger_expected: pending_unschedulable   # added via SPEC §11 amendment 2026-07-06
 known_root_cause: resource_starvation
 expected_fix:
   action_id: bump_resources        # here meaning: LOWER the request to fit (params carry direction)
@@ -10,7 +10,7 @@ wait_for:
   timeout_seconds: 180
 notes: |
   RESOLVED 2026-07-06: SPEC §3 amended to add `pending_unschedulable` trigger
-  (option a). Rationale in SPEC §9 — FailedScheduling is a distinct evidence
+  (option a). Rationale in SPEC §11 — FailedScheduling is a distinct evidence
   path (events + node capacity, zero logs), which makes trajectory scoring
   actually mean something here.
   Request is set to 64Gi — comfortably above any homelab node. Adjust down
