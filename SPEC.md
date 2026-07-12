@@ -187,6 +187,9 @@ eval:
   reporting:
     destination: README results table
     rule: publish numbers however embarrassing; failure modes are blog content
+    provenance: every published run records what produced it — agent identity,
+      and for LLM agents the model id and prompt version; numbers without
+      provenance are not comparable across runs
 ```
 
 ## 8. Architecture
@@ -215,3 +218,4 @@ The M1 design lives in [DESIGN.md](DESIGN.md), subordinate to this spec. It reso
 | 2026-07-09 | Approval surface (§5 gates) made a pluggable contract; M1 ships a web panel only, chat one-click (Slack/Discord) demoted to a later product-track candidate | solo-operator deployments already have a UI where approvals belong; chat's advantages (mobile approve, shared team channel) are respectively covered by the panel being network-reachable and deferred with other team features. Any surface is a thin adapter over one approval endpoint, so adding chat later touches nothing in the agent |
 | 2026-07-11 | §1: dropped the named K8sGPT/HolmesGPT comparison; the two differentiators stand on their own | the comparison was an artifact of an early scoping conversation; naming competitors in a spec dates it and can silently become wrong as they evolve |
 | 2026-07-11 | §10 rewritten: open design items resolved; now points at DESIGN.md | design phase complete — DESIGN.md records the M1 decisions (graph shape, state schema, SQLite checkpointer, FastAPI-first transport, reference panel) and stays subordinate to this spec |
+| 2026-07-11 | §7 reporting: provenance required (agent identity; model id + prompt version for LLM agents) | first real-agent numbers published; without provenance the README table can't be compared across runs — the reproducibility gap DESIGN.md §10 flagged |

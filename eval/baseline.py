@@ -39,7 +39,8 @@ def main():
         if not state_path.exists():
             print(f"skipping {scenario_id}: no {state_path}")
             continue
-        output = diagnose(json.loads(state_path.read_text()))
+        output = {**diagnose(json.loads(state_path.read_text())),
+                  "provenance": {"agent": "baseline"}}
         output_path = run_dir / scenario_id / "agent_output.json"
         output_path.write_text(json.dumps(output, indent=2))
         print(f"wrote {output_path}")

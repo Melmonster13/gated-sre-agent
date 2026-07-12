@@ -132,7 +132,7 @@ A minimal reference panel (single static page served by the API) listing pending
 
 ## 10. LLM
 
-Provider-agnostic via env (`LLM_MODEL`, key per §6 secrets rule); reference implementation uses the Anthropic API with structured output — the response schema constrains the verdict to the SPEC §7 vocabulary and evidence citations to the §4 step ids, so the output contract holds even against adversarial log content. (Current Anthropic models accept no sampling parameters; determinism is approximated by schema constraint, not temperature.) `model_id` and `prompt_version` are recorded in state and audit, and should flow into eval results — reproducibility gap in SPEC §7 reporting, to be fixed by amendment when the first real numbers are published.
+Provider-agnostic via env (`LLM_MODEL`, key per §6 secrets rule); reference implementation uses the Anthropic API with structured output — the response schema constrains the verdict to the SPEC §7 vocabulary and evidence citations to the §4 step ids, so the output contract holds even against adversarial log content. (Current Anthropic models accept no sampling parameters; determinism is approximated by schema constraint, not temperature.) `model_id` and `prompt_version` are recorded in state and audit, and flow into eval results and the published README table (SPEC §7 provenance).
 
 ## 11. Dependencies added for M1
 

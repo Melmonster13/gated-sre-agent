@@ -17,9 +17,20 @@ START_MARKER = "<!-- EVAL_RESULTS_START -->"
 END_MARKER = "<!-- EVAL_RESULTS_END -->"
 
 
+def render_provenance(results):
+    parts = []
+    for prov in results.get("provenance", [{"agent": "unknown"}]):
+        desc = f"`{prov.get('agent', 'unknown')}`"
+        if prov.get("model_id"):
+            desc += f" ({prov['model_id']}, prompt {prov.get('prompt_version')})"
+        parts.append(desc)
+    return ", ".join(parts)
+
+
 def render_table(results):
     lines = [
-        f"Run `{results['run_id']}` — scored {results['scored_at'][:10]}",
+        f"Run `{results['run_id']}` — scored {results['scored_at'][:10]} — "
+        f"produced by {render_provenance(results)}",
         "",
         "| Scenario | Known root cause | Agent verdict | Verdict | Trajectory | Honesty |",
         "|---|---|---|---|---|---|",

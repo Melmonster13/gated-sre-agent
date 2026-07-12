@@ -49,8 +49,13 @@ def main():
             "dedup_key": f"eval/{scenario_id}",
         }
         result = graph.invoke({"trigger": trigger})
+        output = {**output_contract(result), "provenance": {
+            "agent": "gated-sre-agent",
+            "model_id": result.get("model_id"),
+            "prompt_version": result.get("prompt_version"),
+        }}
         output_path = run_dir / scenario_id / "agent_output.json"
-        output_path.write_text(json.dumps(output_contract(result), indent=2))
+        output_path.write_text(json.dumps(output, indent=2))
         print(f"wrote {output_path} (outcome={result.get('outcome')})")
 
 

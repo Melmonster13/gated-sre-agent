@@ -110,12 +110,17 @@ def main():
     vocab = load_vocab()
 
     rows = []
+    provenance = []  # SPEC §7: numbers without provenance aren't comparable
     for scenario_id, scenario in scenarios.items():
         output_path = run_dir / scenario_id / "agent_output.json"
         if not output_path.exists():
             print(f"skipping {scenario_id}: no {output_path}")
             continue
-        rows.append(score_scenario(json.loads(output_path.read_text()), scenario, vocab))
+        output = json.loads(output_path.read_text())
+        rows.append(score_scenario(output, scenario, vocab))
+        prov = output.get("provenance", {"agent": "unknown"})
+        if prov not in provenance:
+            provenance.append(prov)
 
     if not rows:
         raise SystemExit(f"nothing to score in {run_dir}")
@@ -123,6 +128,7 @@ def main():
     results = {
         "run_id": run_dir.name,
         "scored_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "provenance": provenance,
         "scenarios": rows,
         "summary": summarize(rows),
     }

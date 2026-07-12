@@ -15,10 +15,11 @@ eval-one:
 	$(PYTHON) -m eval.score --run latest
 
 # Real agent over the latest recorded run (overwrites that run's agent_output
-# files and rescores; does not touch the README — publishing is deliberate).
+# files, rescores, republishes the README table — provenance says who ran).
 eval-agent:
 	$(PYTHON) -m agent.evalrun --run latest
 	$(PYTHON) -m eval.score --run latest
+	$(PYTHON) -m eval.update_readme
 
 test:
 	$(PYTHON) -m pytest tests/ -q
