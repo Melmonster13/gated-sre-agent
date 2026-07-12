@@ -2,6 +2,7 @@
 __pycache__/
 .pytest_cache/
 .DS_Store
+.Rhistory
 
 # generated per-run artifacts; the published numbers live in README.md
 eval/runs/
