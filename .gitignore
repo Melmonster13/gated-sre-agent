@@ -6,3 +6,7 @@ __pycache__/
 
 # generated per-run artifacts; the published numbers live in README.md
 eval/runs/
+
+# agent runtime state (checkpointer db, audit log)
+agent.db
+audit.jsonl

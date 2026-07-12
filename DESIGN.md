@@ -47,7 +47,7 @@ Single process because the SQLite checkpointer (§6 below) wants a single writer
 | `verify` | §1, §5 | Waits, then re-runs the trigger check plus the relevant evidence step. `resolved` → close; `persists`/`worsened` → escalate with before/after evidence. Never retries without a fresh approval. |
 | `close` / `escalate` | §5, §6 | Terminal bookkeeping: audit record, notification. |
 
-The `fix executable` edge checks the §5 actions table: the action must be implemented (M1: `restart_pod`) — and once tiers graduate, `draft_only` actions still stop here. A run entering `close(draft)` is not a failure; it's the product working as specified.
+The `fix executable` edge checks the §5 actions table: the action must be implemented (M1: `restart_pod`), and `draft_only` actions stop here until they graduate. A run entering `close(draft)` is not a failure; it's the product working as specified. Test affordance: `AGENT_TEST_EXECUTE_NAMESPACES` lets draft_only actions cross the gate in the listed namespaces only, so tests and the walking skeleton can exercise the Act path — production deployments leave it empty; graduation itself remains a SPEC §5 spec amendment, not a config change.
 
 ## 3. State schema
 
@@ -132,7 +132,7 @@ A minimal reference panel (single static page served by the API) listing pending
 
 ## 10. LLM
 
-Provider-agnostic via env (`LLM_MODEL`, key per §6 secrets rule); reference implementation uses the Anthropic API with structured output, temperature 0. `model_id` and `prompt_version` are recorded in state and audit, and should flow into eval results — reproducibility gap in SPEC §7 reporting, to be fixed by amendment when the first real numbers are published.
+Provider-agnostic via env (`LLM_MODEL`, key per §6 secrets rule); reference implementation uses the Anthropic API with structured output — the response schema constrains the verdict to the SPEC §7 vocabulary and evidence citations to the §4 step ids, so the output contract holds even against adversarial log content. (Current Anthropic models accept no sampling parameters; determinism is approximated by schema constraint, not temperature.) `model_id` and `prompt_version` are recorded in state and audit, and should flow into eval results — reproducibility gap in SPEC §7 reporting, to be fixed by amendment when the first real numbers are published.
 
 ## 11. Dependencies added for M1
 

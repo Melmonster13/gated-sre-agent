@@ -1,7 +1,7 @@
 PYTHON ?= .venv/bin/python
 RUNNER_FLAGS ?=
 
-.PHONY: eval eval-one test
+.PHONY: eval eval-one eval-agent test
 
 eval:
 	$(PYTHON) -m eval.runner --all $(RUNNER_FLAGS)
@@ -12,6 +12,12 @@ eval:
 eval-one:
 	$(PYTHON) -m eval.runner --scenario $(SCENARIO) --debounce-override 0
 	$(PYTHON) -m eval.baseline --run latest
+	$(PYTHON) -m eval.score --run latest
+
+# Real agent over the latest recorded run (overwrites that run's agent_output
+# files and rescores; does not touch the README — publishing is deliberate).
+eval-agent:
+	$(PYTHON) -m agent.evalrun --run latest
 	$(PYTHON) -m eval.score --run latest
 
 test:
