@@ -14,8 +14,8 @@ An open-source AI SRE agent for small self-hosted teams (k3s/homelab). Core loop
 - Deny is a real branch, not a dead end: it logs the proposal and decision, then returns to observing. That log is the audit trail.
 - Post-action Observe is verification, not just re-checking: did the fix actually help, or make it worse? A failed fix escalates (§5 gates) instead of declaring victory.
 
-Differentiators vs. K8sGPT/HolmesGPT:
-1. It **acts**, behind explicit approval gates.
+Two commitments define the project:
+1. It **acts** — not just diagnoses — behind explicit approval gates.
 2. It **proves accuracy** with a public eval harness (verdict + trajectory + honesty scores in README).
 
 ## 2. Scope (M1 — LOCKED)
@@ -216,3 +216,4 @@ Before adding anything, answer: **job track, product track, or neither?** Cut "n
 | 2026-07-06 | Added `steps` to §4 output_contract | trajectory scoring needs the ordered log of steps actually run; evidence citations are validated against it (citing a step that never ran zeroes the trajectory score) |
 | 2026-07-09 | v2 re-baseline. Architecture fixed (§8: LangGraph, Observer/Diagnostician split, in-cluster deploy). M1 action surface narrowed 3→1; bare-pod guard, stale-approval re-verify, and failed-fix escalation added (§2, §5). RBAC read corrected to include `pods/log` + `deployments`, write narrowed to `pods/delete`, caller access tiers added (§6). Honesty score documented (§7). Amendment log moved §9→§11. | v1 was an external course-scoped draft (ADK/Cloud Run), superseded without ever being merged here; course constraints dropped in favor of a homelab-native architecture. Deployment-environment specifics (networking, upstream orchestrator identity) are deliberately kept out of this public spec. |
 | 2026-07-09 | Approval surface (§5 gates) made a pluggable contract; M1 ships a web panel only, chat one-click (Slack/Discord) demoted to a later product-track candidate | solo-operator deployments already have a UI where approvals belong; chat's advantages (mobile approve, shared team channel) are respectively covered by the panel being network-reachable and deferred with other team features. Any surface is a thin adapter over one approval endpoint, so adding chat later touches nothing in the agent |
+| 2026-07-11 | §1: dropped the named K8sGPT/HolmesGPT comparison; the two differentiators stand on their own | the comparison was an artifact of an early scoping conversation; naming competitors in a spec dates it and can silently become wrong as they evolve |
