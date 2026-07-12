@@ -114,9 +114,13 @@ def build_graph(config, evidence_source, actuator, condition_check, diagnose_fn,
         return "finalize" if outcome else "verify"
 
     def verify(state):
-        """Post-action Observe (SPEC §1): did the fix actually help?"""
+        """Post-action Observe (SPEC §1): did the fix actually help?
+
+        Excludes the deleted pod — its Terminating remains still carry the
+        failure status; only its replacement is evidence about the fix.
+        """
         time.sleep(config.verify_wait_seconds)
-        persists = condition_check(state["trigger"])
+        persists = condition_check(state["trigger"], exclude_pod=state["trigger"]["pod"])
         return {"outcome": "persists" if persists else "resolved"}
 
     def finalize(state):

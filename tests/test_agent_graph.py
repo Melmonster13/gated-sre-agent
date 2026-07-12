@@ -56,7 +56,7 @@ class ScriptedCondition:
     def __init__(self, *values):
         self.values = list(values)
 
-    def __call__(self, trigger):
+    def __call__(self, trigger, exclude_pod=None):
         return self.values.pop(0) if len(self.values) > 1 else self.values[0]
 
 

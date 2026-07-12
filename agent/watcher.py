@@ -78,19 +78,22 @@ def make_condition_check(core_api):
     """Does the trigger's failure condition still hold? Used by act (stale
     re-verify) and verify (did the fix help?) — SPEC §5."""
 
-    def condition_check(trigger):
+    def condition_check(trigger, exclude_pod=None):
         try:
             pods = core_api.list_namespaced_pod(trigger["namespace"]).items
         except Exception:
             return False
         pending = {p.metadata.name for p in pods if p.status.phase == "Pending"}
-        # The original pod may be gone (that was the fix); the condition holds
-        # only if some pod from the same workload still shows the failure.
+        # The condition holds if some pod from the same workload still shows
+        # the failure. Verify excludes the pod the fix just deleted — its
+        # Terminating carcass still carries the failure status and says
+        # nothing about whether the fix worked.
         prefix = trigger["pod"].rsplit("-", 2)[0]
         return any(
             classify(core_api, pod, pending) == trigger["trigger_id"]
             for pod in pods
             if pod.metadata.name.rsplit("-", 2)[0] == prefix
+            and pod.metadata.name != exclude_pod
         )
 
     return condition_check
