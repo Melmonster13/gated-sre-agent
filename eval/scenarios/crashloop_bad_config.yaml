@@ -33,7 +33,7 @@ setup_manifest: |
         containers:
           - name: app
             image: busybox:1.36
-            command: ["sh", "-c", "test -n \"$REQUIRED_SECRET\" || (echo 'FATAL: REQUIRED_SECRET not set' && exit 1); sleep 3600"]
+            command: ["sh", "-c", "test -n \"$REQUIRED_SECRET\" || { echo 'FATAL: REQUIRED_SECRET not set'; exit 1; }; sleep 3600"]
             env:
               - name: REQUIRED_SECRET
                 valueFrom:
