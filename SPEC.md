@@ -200,12 +200,9 @@ eval:
 
 Before adding anything, answer: **job track, product track, or neither?** Cut "neither." If it's product track, it waits for the 90-day traction check (clock starts when M4 ships publicly).
 
-## 10. Open design items (next phase: design)
+## 10. Design
 
-- LangGraph node/edge definitions and state schema
-- Checkpointer backend selection (SQLite vs. Postgres for persistent runs)
-- Transport contract for upstream callers — MCP tool(s) vs. hand-built FastAPI endpoint
-- Web panel shape for the M1 approval surface (and the approval endpoint it posts to)
+The M1 design lives in [DESIGN.md](DESIGN.md), subordinate to this spec. It resolves what this section previously listed as open: graph node/edge definitions and state schema, checkpointer backend (SQLite), transport for upstream callers (FastAPI first; MCP deferred), and the approval surface (reference web panel over a single decision endpoint).
 
 ## 11. Amendment log
 
@@ -217,3 +214,4 @@ Before adding anything, answer: **job track, product track, or neither?** Cut "n
 | 2026-07-09 | v2 re-baseline. Architecture fixed (§8: LangGraph, Observer/Diagnostician split, in-cluster deploy). M1 action surface narrowed 3→1; bare-pod guard, stale-approval re-verify, and failed-fix escalation added (§2, §5). RBAC read corrected to include `pods/log` + `deployments`, write narrowed to `pods/delete`, caller access tiers added (§6). Honesty score documented (§7). Amendment log moved §9→§11. | v1 was an external course-scoped draft (ADK/Cloud Run), superseded without ever being merged here; course constraints dropped in favor of a homelab-native architecture. Deployment-environment specifics (networking, upstream orchestrator identity) are deliberately kept out of this public spec. |
 | 2026-07-09 | Approval surface (§5 gates) made a pluggable contract; M1 ships a web panel only, chat one-click (Slack/Discord) demoted to a later product-track candidate | solo-operator deployments already have a UI where approvals belong; chat's advantages (mobile approve, shared team channel) are respectively covered by the panel being network-reachable and deferred with other team features. Any surface is a thin adapter over one approval endpoint, so adding chat later touches nothing in the agent |
 | 2026-07-11 | §1: dropped the named K8sGPT/HolmesGPT comparison; the two differentiators stand on their own | the comparison was an artifact of an early scoping conversation; naming competitors in a spec dates it and can silently become wrong as they evolve |
+| 2026-07-11 | §10 rewritten: open design items resolved; now points at DESIGN.md | design phase complete — DESIGN.md records the M1 decisions (graph shape, state schema, SQLite checkpointer, FastAPI-first transport, reference panel) and stays subordinate to this spec |
