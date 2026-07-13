@@ -34,6 +34,7 @@ class Config:
     execute_override_namespaces: tuple
     observe_token: str
     act_token: str
+    notify_webhook: str = ""    # DESIGN §9: optional generic webhook, informational only
 
 
 def load_config():
@@ -49,6 +50,7 @@ def load_config():
         execute_override_namespaces=tuple(_split(env("AGENT_TEST_EXECUTE_NAMESPACES", ""))),
         observe_token=env("AGENT_OBSERVE_TOKEN", ""),
         act_token=env("AGENT_ACT_TOKEN", ""),
+        notify_webhook=env("AGENT_NOTIFY_WEBHOOK", ""),
     )
 
 

@@ -127,7 +127,7 @@ A minimal reference panel (single static page served by the API) listing pending
 
 ## 9. Notifications and audit
 
-- **Notifier:** one function, two M1 backends — structured log line (always) and optional generic webhook URL from config. Informational only, per §5.
+- **Notifier:** one function, two M1 backends — structured log line (always) and optional generic webhook URL from config (`AGENT_NOTIFY_WEBHOOK`). Informational only, per §5. Events fire on runtime run-state transitions, not in graph nodes: the gate node body replays on resume (an in-node webhook would fire twice per proposal), and the graph stays notification-free for eval runs (§5 seam). One `proposal` event when a run pauses at the gate (carries the §5 message_must_include fields), one `outcome` event per terminal close — draft closes included, since pre-graduation deployments surface diagnoses through exactly that event.
 - **Audit:** append-only JSONL file beside the checkpointer DB; one record per run transition with the §6 `audit_log.contents` fields. The audit write happens in `close`/`escalate` and at the gate decision — not best-effort logging, a node responsibility.
 
 ## 10. LLM

@@ -15,8 +15,9 @@ log = logging.getLogger("agent.runtime")
 
 
 class Runtime:
-    def __init__(self, graph):
+    def __init__(self, graph, notify_fn=None):
         self.graph = graph
+        self.notify = notify_fn or (lambda event: None)
         self.runs = {}  # thread_id -> {trigger, status, proposal, outcome}
         self.lock = threading.Lock()
 
@@ -47,13 +48,21 @@ class Runtime:
         return True
 
     def _invoke(self, thread_id, payload):
+        """Notifications fire here, on run-state transitions, not in graph
+        nodes: the gate node body replays on resume (an in-node webhook would
+        fire twice per proposal), and the graph stays notification-free for
+        eval runs (DESIGN §5: same graph, only the backings differ)."""
         config = {"configurable": {"thread_id": thread_id}}
         try:
             result = self.graph.invoke(payload, config)
         except Exception:
             log.exception("run %s failed", thread_id)
             with self.lock:
-                self.runs[thread_id]["status"] = "failed"
+                run = self.runs[thread_id]
+                run["status"] = "failed"
+                trigger = run["trigger"]
+            self.notify({"event": "run_failed", "thread_id": thread_id,
+                         "target": f"{trigger['namespace']}/{trigger['pod']}"})
             return
         with self.lock:
             run = self.runs[thread_id]
@@ -61,10 +70,23 @@ class Runtime:
             if interrupts:
                 run["status"] = "paused"
                 run["proposal"] = interrupts[0].value
+                event = {"event": "proposal", "thread_id": thread_id, **run["proposal"]}
             else:
                 run["status"] = "done"
                 run["outcome"] = result.get("outcome")
                 run["proposal"] = None
+                trigger = run["trigger"]
+                verdict = result.get("verdict") or {}
+                fix = result.get("proposed_fix") or {}
+                event = {
+                    "event": "outcome", "thread_id": thread_id,
+                    "outcome": run["outcome"],
+                    "target": f"{trigger['namespace']}/{trigger['pod']}",
+                    "root_cause": verdict.get("root_cause"),
+                    "confidence": verdict.get("confidence"),
+                    "plain_language_fix": fix.get("plain_language"),
+                }
+        self.notify(event)
 
     def snapshot(self, thread_id=None):
         with self.lock:

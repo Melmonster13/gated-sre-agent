@@ -16,6 +16,7 @@ from agent.api import build_app
 from agent.config import load_config
 from agent.graph import build_graph
 from agent.llm import diagnose
+from agent.notify import notify
 from agent.runtime import Runtime
 from agent.tools import LiveActuator, LiveCluster
 from agent.watcher import Watcher, make_condition_check
@@ -40,7 +41,7 @@ def main():
         diagnose_fn=diagnose,
         checkpointer=checkpointer,
     )
-    runtime = Runtime(graph)
+    runtime = Runtime(graph, notify_fn=lambda event: notify(cfg.notify_webhook, event))
     watcher = Watcher(core, cfg, runtime.start_run, runtime.has_active_run)
     threading.Thread(target=watcher.run, daemon=True).start()
 
