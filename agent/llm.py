@@ -8,6 +8,8 @@ log content tries to talk the model out of it.
 """
 
 import json
+import os
+import urllib.request
 
 import anthropic
 
@@ -15,6 +17,13 @@ from eval.common import SCENARIOS_DIR, load_vocab
 from eval.score import REQUIRED_STEPS
 
 PROMPT_VERSION = "v1"
+
+# Local backends (Ollama) can silently truncate input at their default
+# context window; the §4 evidence set runs to thousands of tokens, so the
+# window is set explicitly. Output is small schema-bound JSON.
+OLLAMA_NUM_CTX = 16384
+OLLAMA_NUM_PREDICT = 2048
+OLLAMA_TIMEOUT_SECONDS = 600
 
 SYSTEM = """You are the diagnostician node of a gated Kubernetes SRE agent.
 A read-only observer has gathered evidence from the cluster; your job is to
@@ -90,27 +99,71 @@ def _schema():
     }
 
 
-def diagnose(evidence, trigger, model):
-    """Return {hypotheses, verdict, proposed_fix} for the gathered evidence."""
+def _prompt(evidence, trigger):
     vocab_text = (SCENARIOS_DIR / "vocab.yaml").read_text()
     body = [f"Trigger: {trigger['trigger_id']} on pod {trigger['namespace']}/{trigger['pod']}"]
     for step_id in REQUIRED_STEPS:
         body.append(f"\n## {step_id}\n{evidence.get(step_id, '<missing>')}")
+    return SYSTEM.format(vocab=vocab_text), "\n".join(body)
 
+
+def diagnose(evidence, trigger, model):
+    """Return {hypotheses, verdict, proposed_fix} for the gathered evidence.
+
+    Backend is env-selected (DESIGN §10): LLM_BASE_URL set routes to the
+    Ollama native endpoint with the same schema-constrained decoding;
+    unset uses the Anthropic reference path.
+    """
+    if os.environ.get("LLM_BASE_URL"):
+        return _diagnose_ollama(evidence, trigger, model, os.environ["LLM_BASE_URL"])
+    return _diagnose_anthropic(evidence, trigger, model)
+
+
+def _diagnose_anthropic(evidence, trigger, model):
+    system, body = _prompt(evidence, trigger)
     client = anthropic.Anthropic()
     response = client.messages.create(
         model=model,
         max_tokens=16000,
         thinking={"type": "adaptive"},
-        system=SYSTEM.format(vocab=vocab_text),
-        messages=[{"role": "user", "content": "\n".join(body)}],
+        system=system,
+        messages=[{"role": "user", "content": body}],
         output_config={"format": {"type": "json_schema", "schema": _schema()}},
     )
     if response.stop_reason == "refusal":
         return _unknown("model refused the request")
 
     text = next(block.text for block in response.content if block.type == "text")
-    result = json.loads(text)
+    return _clamped(json.loads(text))
+
+
+def _diagnose_ollama(evidence, trigger, model, base_url):
+    """Ollama native /api/chat: `format` enforces the same JSON schema at the
+    decoder, so the §4 output contract holds identically to the reference path."""
+    system, body = _prompt(evidence, trigger)
+    request = urllib.request.Request(
+        f"{base_url.rstrip('/')}/api/chat",
+        data=json.dumps({
+            "model": model,
+            "stream": False,
+            "format": _schema(),
+            "options": {"num_ctx": OLLAMA_NUM_CTX, "num_predict": OLLAMA_NUM_PREDICT},
+            "messages": [{"role": "system", "content": system},
+                         {"role": "user", "content": body}],
+        }).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=OLLAMA_TIMEOUT_SECONDS) as response:
+        content = json.loads(response.read())["message"]["content"]
+    try:
+        return _clamped(json.loads(content))
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        # schema decoding makes this rare; truncation (num_predict) is the
+        # realistic path here — fail toward honesty, not a guess
+        return _unknown(f"unparseable model output ({exc.__class__.__name__})")
+
+
+def _clamped(result):
     result["verdict"]["confidence"] = min(1.0, max(0.0, result["verdict"]["confidence"]))
     return result
 
