@@ -113,6 +113,7 @@ FastAPI, same process. Bearer-token auth with the two SPEC §6 access tiers; M1 
 
 | Endpoint | Tier | Purpose |
 |---|---|---|
+| `GET /` | none | reference approval panel (§8) — static page, no data |
 | `GET /healthz` | none | liveness |
 | `GET /proposals` | observe | runs paused at the gate |
 | `GET /proposals/{thread_id}` | observe | full proposal: plain-language fix, evidence summary, confidence, expiry |
@@ -124,6 +125,8 @@ FastAPI, same process. Bearer-token auth with the two SPEC §6 access tiers; M1 
 ## 8. Approval surface
 
 A minimal reference panel (single static page served by the API) listing pending proposals and posting decisions — satisfying the §5 contract: full proposal rendered, explicit click, one decision endpoint, expiry respected. Any other act-tier client (an assistant UI, a future chat integration) replaces it by hitting the same endpoint; the agent doesn't know or care which surface approved.
+
+Implemented as `agent/panel.html`: one file, inline CSS/JS, no framework, served at `GET /`. The page itself is static and data-free — proposals arrive only via fetches carrying the caller's tier tokens (pasted into the page, kept in sessionStorage), so serving the page needs no auth. Deciding requires a non-empty name, recorded as `decided_by` in the audit log. Two hardening choices: all dynamic text is rendered via `textContent`, never HTML — proposal content is downstream of untrusted log text (§2) and must not become an injection vector inside the very surface that authorizes actions; and a CSP meta tag pins `connect-src 'self'` so decisions can only go to the agent that served the page.
 
 ## 9. Notifications and audit
 

@@ -5,11 +5,15 @@ the agent doesn't know or care which surface approved (SPEC §5).
 """
 
 import logging
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 log = logging.getLogger("agent.api")
+
+PANEL = (Path(__file__).parent / "panel.html").read_text()
 
 
 class Decision(BaseModel):
@@ -34,6 +38,12 @@ def build_app(runtime, config):
     app.state.config = config
     if not (config.observe_token and config.act_token):
         log.warning("AGENT_OBSERVE_TOKEN/AGENT_ACT_TOKEN not set — API is unauthenticated (dev only)")
+
+    @app.get("/", response_class=HTMLResponse)
+    def panel():
+        """Reference approval panel (DESIGN §8). The page itself is static and
+        data-free; every fetch it makes carries the caller's tier token."""
+        return PANEL
 
     @app.get("/healthz")
     def healthz():

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Everything inline, nothing external; connect-src 'self' keeps decisions on this origin. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'">
+<title>gated-sre-agent — approvals</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: system-ui, sans-serif; max-width: 44rem; margin: 2rem auto; padding: 0 1rem;
+         color: #222; background: #fff; }
+  h1 { font-size: 1.2rem; } h1 small { color: #777; font-weight: normal; }
+  #config { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  #config input { flex: 1 1 10rem; padding: .4rem; }
+  #agent-status { color: #777; margin-bottom: 1rem; }
+  .card { border: 1px solid #ccc; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+  .card.expired { opacity: .6; }
+  .target { font-weight: 600; }
+  .meta { color: #555; margin: .3rem 0; }
+  .fix { margin: .6rem 0; }
+  .evidence { margin: .4rem 0 .6rem; padding-left: 1.2rem; color: #444; }
+  .evidence li { margin-bottom: .3rem; }
+  .actions button { padding: .5rem 1.2rem; margin-right: .5rem; cursor: pointer; }
+  .actions button:disabled { cursor: not-allowed; opacity: .5; }
+  .approve { background: #1d6f42; color: #fff; border: none; border-radius: 4px; }
+  .deny { background: #eee; border: 1px solid #bbb; border-radius: 4px; }
+  .note { color: #777; font-size: .9rem; margin-top: .5rem; }
+  .outcome { font-weight: 600; }
+  .outcome.bad { color: #a32d2d; }
+</style>
+</head>
+<body>
+<h1>gated-sre-agent <small>reference approval panel</small></h1>
+<div id="config">
+  <input id="observe-token" type="password" placeholder="observe token" autocomplete="off">
+  <input id="act-token" type="password" placeholder="act token (needed to decide)" autocomplete="off">
+  <input id="decided-by" placeholder="your name (recorded in the audit log)">
+</div>
+<div id="agent-status">connecting…</div>
+<main id="proposals"></main>
+
+<script>
+"use strict";
+// SPEC §5 gate contract: render the full proposal, require an explicit click,
+// post to the single decision endpoint, respect expiry. All dynamic text is
+// set via textContent — proposal content is downstream of untrusted log text
+// (DESIGN §2) and must never be interpreted as HTML here.
+const $ = (id) => document.getElementById(id);
+const decided = new Map(); // thread_id -> "waiting" | final outcome
+
+for (const id of ["observe-token", "act-token", "decided-by"]) {
+  $(id).value = sessionStorage.getItem(id) || "";
+  $(id).addEventListener("input", () => sessionStorage.setItem(id, $(id).value));
+}
+
+function headers(tokenField) {
+  const token = $(tokenField).value.trim();
+  return token ? { "Authorization": "Bearer " + token } : {};
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function expiryLabel(iso) {
+  const msLeft = new Date(iso) - Date.now();
+  if (msLeft <= 0) return { text: "expired", expired: true };
+  return { text: "expires in " + Math.ceil(msLeft / 60000) + " min", expired: false };
+}
+
+async function decide(threadId, approve, card) {
+  for (const button of card.querySelectorAll("button")) button.disabled = true;
+  const response = await fetch("/proposals/" + threadId + "/decision", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers("act-token") },
+    body: JSON.stringify({ approve: approve, decided_by: $("decided-by").value.trim() }),
+  }).catch(() => null);
+  if (!response) { setStatus("agent unreachable"); return; }
+  if (response.status === 401) { setStatus("act-tier token required to decide"); refresh(); return; }
+  if (response.status === 409) { decided.set(threadId, "gone (already decided or restarted)"); refresh(); return; }
+  decided.set(threadId, "waiting");
+  refresh();
+}
+
+function renderCard(threadId, run) {
+  const proposal = run.proposal;
+  const card = el("div", "card");
+  const expiry = expiryLabel(proposal.expires_at);
+  if (expiry.expired) card.classList.add("expired");
+
+  card.appendChild(el("div", "target", proposal.action_id + " → " + proposal.target));
+  card.appendChild(el("div", "meta", "root cause: " + proposal.root_cause
+    + " · confidence " + Math.round(proposal.confidence * 100) + "% · " + expiry.text));
+  card.appendChild(el("p", "fix", proposal.plain_language_fix));
+
+  const list = el("ul", "evidence");
+  for (const line of proposal.evidence_summary || []) list.appendChild(el("li", "", line));
+  card.appendChild(list);
+
+  const actions = el("div", "actions");
+  const approve = el("button", "approve", "Approve");
+  const deny = el("button", "deny", "Deny");
+  const name = $("decided-by").value.trim();
+  const blocked = expiry.expired ? "proposal expired"
+    : !name ? "enter your name to decide (it goes in the audit log)" : "";
+  approve.disabled = deny.disabled = Boolean(blocked);
+  approve.addEventListener("click", () => decide(threadId, true, card));
+  deny.addEventListener("click", () => decide(threadId, false, card));
+  actions.appendChild(approve);
+  actions.appendChild(deny);
+  card.appendChild(actions);
+  if (blocked) card.appendChild(el("div", "note", blocked));
+  card.appendChild(el("div", "note", "thread " + threadId));
+  return card;
+}
+
+function renderDecided(threadId, outcome) {
+  const card = el("div", "card");
+  card.appendChild(el("div", "target", "thread " + threadId));
+  if (outcome === "waiting") {
+    card.appendChild(el("div", "note", "decision delivered — run resumed, awaiting outcome…"));
+  } else {
+    const badge = el("span", "outcome", outcome);
+    if (outcome === "persists" || outcome === "error") badge.classList.add("bad");
+    const line = el("div", "meta", "outcome: ");
+    line.appendChild(badge);
+    card.appendChild(line);
+  }
+  return card;
+}
+
+function setStatus(text) { $("agent-status").textContent = text; }
+
+let lastPending = {};
+let renderKey = "";
+
+function refresh() {
+  const main = $("proposals");
+  main.replaceChildren();
+  const pendingIds = Object.keys(lastPending);
+  for (const threadId of pendingIds) {
+    if (!decided.has(threadId)) main.appendChild(renderCard(threadId, lastPending[threadId]));
+  }
+  for (const [threadId, outcome] of decided) main.appendChild(renderDecided(threadId, outcome));
+  if (!main.children.length) main.appendChild(el("p", "note", "No pending proposals."));
+}
+
+async function poll() {
+  let response;
+  try { response = await fetch("/proposals", { headers: headers("observe-token") }); }
+  catch { setStatus("agent unreachable"); return; }
+  if (response.status === 401) { setStatus("observe token required (paste it above)"); return; }
+  lastPending = await response.json();
+  const n = Object.keys(lastPending).filter((t) => !decided.has(t)).length;
+  setStatus(n === 1 ? "1 pending proposal" : n + " pending proposals");
+
+  for (const [threadId, outcome] of decided) {
+    if (outcome !== "waiting") continue;
+    const runResponse = await fetch("/runs/" + threadId, { headers: headers("observe-token") }).catch(() => null);
+    if (!runResponse || !runResponse.ok) continue;
+    const run = await runResponse.json();
+    if (run.status === "done") decided.set(threadId, run.outcome);
+    if (run.status === "failed") decided.set(threadId, "error");
+  }
+  // Rebuild the DOM only when the data (or the countdown minute) changed —
+  // an unconditional rebuild every poll makes in-flight clicks land on
+  // removed nodes. The minute bucket keeps the expiry label fresh.
+  const key = JSON.stringify([lastPending, [...decided], Math.floor(Date.now() / 60000)]);
+  if (key !== renderKey) { renderKey = key; refresh(); }
+}
+
+$("decided-by").addEventListener("input", refresh);
+poll();
+setInterval(poll, 5000);
+</script>
+</body>
+</html>
