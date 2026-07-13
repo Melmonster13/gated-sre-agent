@@ -138,6 +138,64 @@ Provider-agnostic via env (`LLM_MODEL`, key per §6 secrets rule); reference imp
 
 `langgraph`, `langgraph-checkpoint-sqlite`, `fastapi`, `uvicorn`, `anthropic` — on top of the existing `kubernetes` / `PyYAML` / `pytest`. Anything beyond this list needs a reason in this file.
 
-## 12. Deliberately not designed here
+## 12. Integrating an upstream orchestrator
 
-Postgres checkpointer, MCP wrapper internals, chat approval surfaces, additional actions (SPEC §5 `deferred_M2`), JIT Kubernetes tokens (SPEC §6 `deferred_hardening`), panel styling.
+How any upstream caller — an assistant orchestrator, a chat bot, a CLI — drives a running agent. Three touchpoints, all already specified elsewhere; this section is the integration view. The agent neither knows nor cares what the caller is (§8): anything holding the right tier token is a valid surface.
+
+### Tokens
+
+Two static bearer tokens (SPEC §6 access_tiers), supplied per request as `Authorization: Bearer <token>`:
+
+| Tier | Grants | Give it to |
+|---|---|---|
+| `observe` | read everything: pending proposals, run state | any orchestrator component; safe default |
+| `act` | additionally `POST …/decision` | only the surface that renders the full proposal to a human and collects an explicit click |
+
+The SPEC §5 gate contract binds the act-tier holder, not the agent: the decision must come from an explicit affirmative action, never inferred from text or speech. A voice assistant may hold `observe` to announce a proposal; it must not hold `act` — a spoken "yes" is never sufficient.
+
+### Reading and deciding
+
+Endpoints per §7. Integration semantics:
+
+- `GET /proposals` (observe) — runs paused at the gate, keyed by `thread_id`. Poll this to reconcile after missed webhooks or an agent restart.
+- `GET /proposals/{thread_id}` (observe) — the full proposal. Render **this**, not the webhook body (see below).
+- `POST /proposals/{thread_id}/decision` (act) — body `{"approve": bool, "decided_by": str}`; returns `{"resumed": thread_id}`. `409` if the run is not paused (already decided, finished, or unknown after a restart) — treat as "this proposal is gone", re-list. Approval does not guarantee execution: the agent still enforces expiry (1h TTL → `expired`), the stale re-verify (cluster moved on → `stale`, fresh investigation), and the write allowlist. The caller learns what actually happened from the outcome, not from the 200.
+- `GET /runs/{thread_id}` (observe) — `status` (`running|paused|done|failed`) and terminal `outcome` (`resolved|persists|denied|expired|draft|error`).
+
+### Webhook events (§9)
+
+`AGENT_NOTIFY_WEBHOOK` receives one JSON POST per event:
+
+```jsonc
+// run paused at the gate — carries the SPEC §5 message_must_include fields
+{"event": "proposal", "thread_id": "…", "plain_language_fix": "…",
+ "evidence_summary": ["…"], "confidence": 0.82, "root_cause": "…",
+ "action_id": "restart_pod", "target": "ns/pod", "expires_at": "…"}
+
+// terminal close — including draft closes, which is how a pre-graduation
+// deployment surfaces its diagnoses
+{"event": "outcome", "thread_id": "…", "outcome": "resolved", "target": "ns/pod",
+ "root_cause": "…", "confidence": 0.82, "plain_language_fix": "…"}
+
+// run crashed before reaching a terminal node
+{"event": "run_failed", "thread_id": "…", "target": "ns/pod"}
+```
+
+A `stale` approval routes back to a fresh investigation, so one `thread_id` can emit a second `proposal` event; render the latest.
+
+Delivery is best-effort, at-most-once: 5s timeout, no retries, no signing (M1). Consequences for the receiver: tolerate missing events (reconcile via `GET /proposals`), and treat the payload as an untrusted hint — an approval UI must re-fetch the proposal from the authenticated API before rendering it, so a spoofed POST to the receiver can't put fake words in front of the human. The webhook can wake an orchestrator; it must never be the source of truth.
+
+### One honest M1 limitation
+
+The run registry the API serves from is in-process (§7); an agent restart drops pending proposals from the API even though the checkpointer retains graph state. This is accepted for M1: the trigger condition still holds, so the watcher re-fires after the debounce window and produces a fresh proposal — same worst case as the watcher's own crash story (§4, one duplicate proposal, which the gate makes harmless).
+
+### Reference sequence
+
+1. Receive `proposal` event (or poll `GET /proposals`).
+2. `GET /proposals/{thread_id}` with the observe token; render plain-language fix, evidence summary, confidence to the human.
+3. On an explicit click, `POST …/decision` with the act token.
+4. Await the `outcome` event (or poll `GET /runs/{thread_id}`); on `persists`/`error`, escalate loudly — the fix did not work and the agent will not retry without a fresh approval (SPEC §5).
+
+## 13. Deliberately not designed here
+
+Postgres checkpointer, MCP wrapper internals, chat approval surfaces, additional actions (SPEC §5 `deferred_M2`), JIT Kubernetes tokens (SPEC §6 `deferred_hardening`), panel styling, webhook signing/retries (revisit with the MCP wrapper).
