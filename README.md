@@ -64,3 +64,9 @@ make test                                # unit tests (no cluster needed)
 
 `make eval` honors the SPEC §3 debounce windows; pass `RUNNER_FLAGS="--debounce-override 0"`
 to skip them while iterating.
+
+## Acknowledgements
+
+Built with assistance from Claude Code (Anthropic) for code generation and
+project scaffolding. All system design, spec decisions, and evaluation
+methodology are my own.
