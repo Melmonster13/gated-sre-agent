@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="gated-sre-agent — an AI SRE agent that proves it is right, then asks before it acts. Eval scores: a no-investigation baseline hits 20% verdict accuracy and lies confidently 80% of the time; the agent on Claude Opus 4.8 scores 100% verdict accuracy and 0% confident lies; on a local qwen2.5:7b model, 80% and 20%.">
+  <style>
+    :root {
+      --bg: #ffffff; --ink: #0f172a; --muted: #5b6473; --line: #94a3b8;
+      --card: #ffffff; --edge: #cbd5e1; --panel: #f1f5f9;
+      --accent: #1d4ed8; --accent-soft: #eff6ff;
+      --high: #b45309; --high-soft: #fffbeb; --low: #0f766e; --low-soft: #f0fdfa;
+      --bound: #be123c; --bound-soft: #fff1f2;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1117; --ink: #e6edf3; --muted: #9aa7b6; --line: #6b7787;
+        --card: #161b22; --edge: #30363d; --panel: #11161d;
+        --accent: #6ea8fe; --accent-soft: #16202f;
+        --high: #e0a458; --high-soft: #211a10; --low: #4dd4ac; --low-soft: #10201c;
+        --bound: #f47d92; --bound-soft: #2a1216;
+      }
+    }
+    .bg { fill: var(--bg); }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .k { font-size: 15px; font-weight: 700; letter-spacing: 0.14em; fill: var(--muted); }
+    .h1 { font-size: 40px; font-weight: 750; fill: var(--ink); }
+    .sub { font-size: 17px; fill: var(--muted); }
+    .tags { font-size: 15px; font-weight: 600; fill: var(--muted); }
+    .colh { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; fill: var(--muted); }
+    .rlab { font-size: 16.5px; font-weight: 650; fill: var(--ink); }
+    .rsub { font-size: 12.5px; fill: var(--muted); }
+    .num { font-size: 33px; font-weight: 750; }
+    .foot { font-size: 13px; fill: var(--muted); }
+    .row { stroke-width: 1.5; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="1280" height="640"/>
+  <rect x="0" y="0" width="9" height="640" fill="var(--high)"/>
+
+  <!-- ===== left: text ===== -->
+  <text class="k" x="64" y="102">GATED-SRE-AGENT · LANGGRAPH · K3S</text>
+  <text class="h1" x="63" y="164">It proves it's right —</text>
+  <text class="h1" x="63" y="210">then asks before it acts.</text>
+  <rect x="64" y="232" width="76" height="4" rx="2" fill="var(--high)"/>
+
+  <text class="sub" x="64" y="286">Observe a k8s failure → diagnose with an LLM →</text>
+  <text class="sub" x="64" y="311">human-approved fix. The eval harness ships before</text>
+  <text class="sub" x="64" y="336">the agent and scores every run in public.</text>
+
+  <text class="tags" x="64" y="556">LangGraph · k3s · human-approved restart_pod · public eval harness</text>
+
+  <!-- ===== right: scorecard ===== -->
+  <text class="colh" x="1090" y="104" text-anchor="end">VERDICT</text>
+  <text class="colh" x="1194" y="104" text-anchor="end">CONF. LIE</text>
+
+  <!-- baseline -->
+  <rect class="row" x="700" y="120" width="516" height="96" rx="10" fill="var(--bound-soft)" stroke="var(--bound)"/>
+  <text class="rlab" x="726" y="162">Baseline</text>
+  <text class="rsub" x="726" y="183">skips investigation, blames the memory limit</text>
+  <text class="num" x="1090" y="180" text-anchor="end" fill="var(--bound)">20%</text>
+  <text class="num" x="1194" y="180" text-anchor="end" fill="var(--bound)">80%</text>
+
+  <!-- agent: opus -->
+  <rect class="row" x="700" y="228" width="516" height="96" rx="10" fill="var(--low-soft)" stroke="var(--low)"/>
+  <text class="rlab" x="726" y="270">Agent · Claude Opus 4.8</text>
+  <text class="rsub" x="726" y="291">full investigation, evidence-cited verdict</text>
+  <text class="num" x="1090" y="288" text-anchor="end" fill="var(--low)">100%</text>
+  <text class="num" x="1194" y="288" text-anchor="end" fill="var(--low)">0%</text>
+
+  <!-- agent: qwen -->
+  <rect class="row" x="700" y="336" width="516" height="96" rx="10" fill="var(--high-soft)" stroke="var(--high)"/>
+  <text class="rlab" x="726" y="378">Agent · qwen2.5:7b</text>
+  <text class="rsub" x="726" y="399">a local model — one honest miss, no cover-up</text>
+  <text class="num" x="1090" y="396" text-anchor="end" fill="var(--high)">80%</text>
+  <text class="num" x="1194" y="396" text-anchor="end" fill="var(--high)">20%</text>
+
+  <text class="foot" x="700" y="468">Trajectory 1.00 on both agents · verdict and trajectory never averaged.</text>
+  <text class="foot" x="700" y="490">Every run published with provenance.</text>
+</svg>

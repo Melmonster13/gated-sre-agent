@@ -5,6 +5,8 @@ events) → **Diagnose** (LLM investigation) → **Gated action** (human-approve
 fix). [SPEC.md](SPEC.md) is the source of truth; code that disagrees with it
 is wrong until the spec is amended.
 
+![Architecture: Kubernetes events trigger a read-only Observer and an LLM Diagnostician inside a trust boundary; their proposed fix must pass a human-approval gate before the agent restarts the pod and verifies the result, looping back. A public eval harness scores verdict, trajectory, and honesty.](docs/architecture.svg)
+
 The eval harness ships before the agent. It seeds real failures into a k3s
 cluster, snapshots the evidence an agent would see, and scores verdicts and
 investigation trajectories separately — a right answer reached by luck and a
